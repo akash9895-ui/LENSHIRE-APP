@@ -1185,6 +1185,8 @@ class _IndexPageState extends State<IndexPage>
                 const SizedBox(height: 16),
                 LayoutBuilder(
                   builder: (context, constraints) {
+
+                    
                     return GridView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       shrinkWrap: true,
