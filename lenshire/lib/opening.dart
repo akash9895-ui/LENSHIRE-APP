@@ -91,7 +91,7 @@ class OpeningPage extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const SignupPage()),
+                      MaterialPageRoute(builder: (context) => const HtmlStyleRegistrationPage()),
                     );
                   },
                   style: OutlinedButton.styleFrom(

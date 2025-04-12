@@ -1,164 +1,481 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:lenshire/login.dart';
+import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class SignupPage extends StatefulWidget {
-  const SignupPage({super.key});
+class HtmlStyleRegistrationPage extends StatefulWidget {
+  const HtmlStyleRegistrationPage({super.key});
 
   @override
-  State<SignupPage> createState() => _SignupPageState();
+  State<HtmlStyleRegistrationPage> createState() => _HtmlStyleRegistrationPageState();
 }
 
-class _SignupPageState extends State<SignupPage> {
-  XFile? _selectedImage;
+class _HtmlStyleRegistrationPageState extends State<HtmlStyleRegistrationPage> {
+  final _formKey = GlobalKey<FormState>();
+  File? _selectedImage;
+  Map<String, dynamic>? _selectedDistrict;
+  Map<String, dynamic>? _selectedPlace;
+  List<Map<String, dynamic>> _districts = [{'id': null, 'name': 'Select'}];
+  List<Map<String, dynamic>> _places = [{'id': null, 'name': 'Select'}];
 
-  // Color constants
-  static const Color backgroundColor = Color(0xFFF2F2F2);
-  static const Color containerColor = Colors.white;
-  static const Color inputFillColor = Color(0xFFF9F9F9);
-  static const Color borderColor = Color(0xFFCCCCCC);
-  static const Color primaryTextColor = Color(0xFF444444);
-  static const Color secondaryTextColor = Color(0xFF666666);
-  static const Color buttonColor = Color(0xFFFFA726);
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController contactController = TextEditingController();
+  final TextEditingController addressController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDistricts();
+  }
+
+  Future<void> _fetchDistricts() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('Admin_tbl_district')
+          .select('id, district_name');
+
+      setState(() {
+        _districts = [
+          {'id': null, 'name': 'Select'},
+          ...response.map((e) => {'id': e['id'], 'name': e['district_name']})
+        ];
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching districts: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _fetchPlaces(int districtId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('Admin_tbl_place')
+          .select('id, place_name')
+          .eq('district_id', districtId);
+
+      setState(() {
+        _places = [
+          {'id': null, 'name': 'Select'},
+          ...response.map((e) => {'id': e['id'], 'name': e['place_name']})
+        ];
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching places: $e')),
+        );
+      }
+    }
+  }
 
   Future<void> _pickImage() async {
-    final pickedImage = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (pickedImage != null) {
+    try {
+      final pickedImage = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (pickedImage != null && mounted) {
+        setState(() {
+          _selectedImage = File(pickedImage.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking image: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      if (_selectedImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select an image')),
+        );
+        return;
+      }
+
       setState(() {
-        _selectedImage = pickedImage;
+        _isLoading = true;
       });
+
+      try {
+        // Upload image to Supabase storage
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_selectedImage!.path.split('/').last}';
+        await Supabase.instance.client.storage
+            .from('Userdocs')
+            .upload(fileName, _selectedImage!);
+
+        final imageUrl = Supabase.instance.client.storage
+            .from('Userdocs')
+            .getPublicUrl(fileName);
+
+        // Register user with Supabase Auth
+        final authResponse = await Supabase.instance.client.auth.signUp(
+          email: emailController.text,
+          password: passwordController.text,
+        );
+
+        if (authResponse.user == null) {
+          throw 'Authentication failed';
+        }
+
+        final userId = authResponse.user!.id;
+
+        // Insert user data into Guest_tbl_user
+        await Supabase.instance.client.from('Guest_tbl_user').insert({
+          'User_id': userId,
+          'user_name': nameController.text,
+          'user_email': emailController.text,
+          'user_contact': contactController.text,
+          'user_address': addressController.text,
+          
+          'user_password': passwordController.text,
+          'place_id': _selectedPlace!['id'],
+          'user_photo': imageUrl,
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registration successful')),
+          );
+
+          // Clear form
+          _formKey.currentState?.reset();
+          setState(() {
+            _selectedImage = null;
+            _selectedDistrict = null;
+            _selectedPlace = null;
+            _places = [{'id': null, 'name': 'Select'}];
+            nameController.clear();
+            emailController.clear();
+            contactController.clear();
+            addressController.clear();
+            passwordController.clear();
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
   @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    contactController.dispose();
+    addressController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        backgroundColor: backgroundColor,
-        body: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+    return Scaffold(
+      body: Center(
+        child: Container(
+          width: 350,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
+            ],
+          ),
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Center(
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 40,
-                          backgroundColor: backgroundColor,
-                          
-                          child: _selectedImage == null
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 40,
-                                  color: secondaryTextColor,
-                                )
-                              : null,
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: IconButton(
-                            icon: const Icon(Icons.add_a_photo, color: buttonColor),
-                            onPressed: _pickImage,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   const Text(
-                    "Sign up",
+                    "User Registration",
                     style: TextStyle(
-                      fontSize: 26,
+                      fontSize: 18,
+                      color: Color(0xFF444444),
                       fontWeight: FontWeight.bold,
-                      color: primaryTextColor,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Create your account",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: secondaryTextColor,
+                  const SizedBox(height: 10),
+
+                  // Name Field
+                  _buildFormGroup(
+                    label: "Name",
+                    child: TextFormField(
+                      controller: nameController,
+                      decoration: _buildInputDecoration(),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your name';
+                        }
+                        if (!RegExp(r'^[A-Z][a-zA-Z ]*$').hasMatch(value)) {
+                          return 'First letter must be uppercase';
+                        }
+                        return null;
+                      },
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 24),
-                  _buildInputField(
-                    icon: Icons.person,
-                    hint: "Username",
+
+                  // Email Field
+                  _buildFormGroup(
+                    label: "Email",
+                    child: TextFormField(
+                      controller: emailController,
+                      decoration: _buildInputDecoration(),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your email';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          return 'Please enter a valid email';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  _buildInputField(
-                    icon: Icons.email,
-                    hint: "Email",
+
+                  // Contact Field
+                  _buildFormGroup(
+                    label: "Contact",
+                    child: TextFormField(
+                      controller: contactController,
+                      decoration: _buildInputDecoration(),
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your phone number';
+                        }
+                        if (!RegExp(r'^[7-9][0-9]{9}$').hasMatch(value)) {
+                          return 'Phone must start with 7-9 and be 10 digits';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  _buildInputField(
-                    icon: Icons.lock,
-                    hint: "Password",
-                    isPassword: true,
+
+                  // Address Field
+                  _buildFormGroup(
+                    label: "Address",
+                    child: TextFormField(
+                      controller: addressController,
+                      decoration: _buildInputDecoration(),
+                      maxLines: 3,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your address';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  _buildInputField(
-                    icon: Icons.lock,
-                    hint: "Confirm Password",
-                    isPassword: true,
+
+                  // Password Field
+                  _buildFormGroup(
+                    label: "Password",
+                    child: TextFormField(
+                      controller: passwordController,
+                      decoration: _buildInputDecoration(),
+                      obscureText: true,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a password';
+                        }
+                        if (!RegExp(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$').hasMatch(value)) {
+                          return 'Must contain at least one number, uppercase and lowercase letter, and be 8+ characters';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: buttonColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+
+                  // District Dropdown
+                  _buildFormGroup(
+                    label: "District",
+                    child: DropdownButtonFormField<Map<String, dynamic>>(
+                      value: _selectedDistrict,
+                      decoration: _buildInputDecoration(),
+                      items: _districts.map((district) {
+                        return DropdownMenuItem<Map<String, dynamic>>(
+                          value: district,
+                          child: Text(district['name']),
+                        );
+                      }).toList(),
+                      onChanged: _isLoading
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _selectedDistrict = value;
+                                _selectedPlace = null;
+                                _places = [{'id': null, 'name': 'Select'}];
+                              });
+                              if (value != null && value['id'] != null) {
+                                _fetchPlaces(value['id']);
+                              }
+                            },
+                      validator: (value) {
+                        if (value == null || value['id'] == null) {
+                          return 'Please select a district';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+
+                  // Place Dropdown
+                  _buildFormGroup(
+                    label: "Place",
+                    child: DropdownButtonFormField<Map<String, dynamic>>(
+                      value: _selectedPlace,
+                      decoration: _buildInputDecoration(),
+                      items: _places.map((place) {
+                        return DropdownMenuItem<Map<String, dynamic>>(
+                          value: place,
+                          child: Text(place['name']),
+                        );
+                      }).toList(),
+                      onChanged: _isLoading
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _selectedPlace = value;
+                              });
+                            },
+                      validator: (value) {
+                        if (value == null || value['id'] == null) {
+                          return 'Please select a place';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+
+                  // Photo Upload
+                  _buildFormGroup(
+                    label: "Photo",
+                    child: InkWell(
+                      onTap: _isLoading ? null : _pickImage,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9F9F9),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFCCCCCC)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                _selectedImage == null
+                                    ? "Select an image"
+                                    : _selectedImage!.path.split('/').last,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.only(right: 8),
+                              child: Icon(Icons.upload, size: 16),
+                            ),
+                          ],
+                        ),
                       ),
-                      elevation: 2,
-                    ),
-                    child: const Text(
-                      "Sign up",
-                      style: TextStyle(fontSize: 16),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
+
+                  const SizedBox(height: 12),
+
+                  // Button Group
+                  Row(
                     children: [
-                      const Text(
-                        "Already have an account? ",
-                        style: TextStyle(color: secondaryTextColor, fontSize: 13),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _submitForm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFA726),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Submit",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push( context,
-                            MaterialPageRoute(builder: (context) => const Login()),
-                          );
-                        },
-                        child: const Text(
-                          "Login",
-                          style: TextStyle(
-                            color: buttonColor,
-                            fontWeight: FontWeight.w600,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  _formKey.currentState?.reset();
+                                  setState(() {
+                                    _selectedImage = null;
+                                    _selectedDistrict = null;
+                                    _selectedPlace = null;
+                                    _places = [{'id': null, 'name': 'Select'}];
+                                    nameController.clear();
+                                    emailController.clear();
+                                    contactController.clear();
+                                    addressController.clear();
+                                    passwordController.clear();
+                                  });
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFCCCCCC),
+                            foregroundColor: const Color(0xFF333333),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            "Cancel",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -173,31 +490,51 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  Widget _buildInputField({
-    required IconData icon,
-    required String hint,
-    bool isPassword = false,
-  }) {
-    return TextField(
-      obscureText: isPassword,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, color: secondaryTextColor),
-        filled: true,
-        fillColor: inputFillColor,
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: buttonColor),
-        ),
+  Widget _buildFormGroup({required String label, required Widget child}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF666666),
+            ),
+          ),
+          const SizedBox(height: 4),
+          child,
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _buildInputDecoration() {
+    return InputDecoration(
+      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      filled: true,
+      fillColor: const Color(0xFFF9F9F9),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: Color(0xFFCCCCCC)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: Color(0xFFCCCCCC)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: Color(0xFFFFA726)),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: Colors.red),
       ),
     );
   }

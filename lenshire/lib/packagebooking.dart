@@ -1,7 +1,11 @@
+
+
+// ignore_for_file: library_private_types_in_public_api
+
 import 'package:flutter/material.dart';
 
 class PackageBookingPage extends StatefulWidget {
-  const PackageBookingPage({Key? key}) : super(key: key);
+  const PackageBookingPage({super.key});
 
   @override
   _PackageBookingPageState createState() => _PackageBookingPageState();
