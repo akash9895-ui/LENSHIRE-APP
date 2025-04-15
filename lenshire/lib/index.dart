@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lenshire/main.dart';
+import 'package:lenshire/custompackage.dart';
+import 'package:lenshire/packagebooking.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lenshire/mybookings.dart';
 import 'package:lenshire/myprofile.dart';
 
-
-// App Colors
+// App Colors (unchanged)
 class AppColors {
   static const Color primary = Color(0xFF2A9D8F);
   static const Color primaryDark = Color(0xFF1E7168);
@@ -40,7 +40,7 @@ class AppColors {
   );
 }
 
-// App Text Styles
+// App Text Styles (unchanged)
 class AppTextStyles {
   static const String fontFamily = 'Poppins';
 
@@ -128,12 +128,12 @@ class AppTextStyles {
   );
 }
 
-// Models
+// Models (unchanged)
 class Photographer {
   final String id;
   final String name;
-  final String specialty; // Assuming specialty is derived or added
-  final double rating; // Placeholder, as rating isn't in CSV
+  final String specialty;
+  final double rating;
   final String? imageUrl;
   final String? bio;
   final String email;
@@ -156,19 +156,19 @@ class Photographer {
     required this.placeId,
   });
 
-  factory Photographer.fromJson(Map<String, dynamic> json) {
+  factory Photographer.fromMap(Map<String, dynamic> data) {
     return Photographer(
-      id: json['photo_id'],
-      name: json['photographer_name'],
-      specialty: 'Photography', // Placeholder; update if specialty is available
-      rating: 4.5, // Placeholder; update with real data if available
-      imageUrl: json['photpgrapher_photo'],
-      bio: null, // Add bio if available
-      email: json['photographer_email'],
-      contact: json['photographer_contact'],
-      address: json['photographer_address'].trim(),
-      status: json['photographer_status'],
-      placeId: json['place_id'],
+      id: data['photo_id']?.toString() ?? '',
+      name: data['photographer_name'] as String? ?? 'Unknown',
+      specialty: 'Photography',
+      rating: 4.5,
+      imageUrl: data['photpgrapher_photo'] as String?,
+      bio: null,
+      email: data['photographer_email'] as String? ?? '',
+      contact: data['photographer_contact'] as String? ?? '',
+      address: (data['photographer_address'] as String?)?.trim() ?? '',
+      status: data['photographer_status'] as int? ?? 0,
+      placeId: data['place_id'] as int? ?? 0,
     );
   }
 }
@@ -178,20 +178,24 @@ class GalleryPhoto {
   final String photoUrl;
   final String? caption;
   final String photographerId;
+  final String? photographerName;
 
   GalleryPhoto({
     required this.id,
     required this.photoUrl,
     this.caption,
     required this.photographerId,
+    this.photographerName,
   });
 
-  factory GalleryPhoto.fromJson(Map<String, dynamic> json) {
+  factory GalleryPhoto.fromMap(Map<String, dynamic> data,
+      {String? photographerName}) {
     return GalleryPhoto(
-      id: json['id'],
-      photoUrl: json['gallery_photo'],
-      caption: json['gallery_caption'],
-      photographerId: json['Photographer_id_id'],
+      id: data['id'] as int? ?? 0,
+      photoUrl: data['gallery_photo'] as String? ?? '',
+      caption: data['gallery_caption'] as String?,
+      photographerId: data['Photographer_id_id']?.toString() ?? '',
+      photographerName: photographerName ?? 'Unknown',
     );
   }
 }
@@ -199,21 +203,40 @@ class GalleryPhoto {
 class Package {
   final int id;
   final String name;
-  final String type;
-  final double price;
+  final String details;
   final String duration;
-  final String? description;
+  final String? typeId;
+  final String? photographerId;
+  final double? amount;
   final String? imageUrl;
 
   Package({
     required this.id,
     required this.name,
-    required this.type,
-    required this.price,
+    required this.details,
     required this.duration,
-    this.description,
+    this.typeId,
+    this.photographerId,
+    this.amount,
     this.imageUrl,
   });
+
+  factory Package.fromMap(Map<String, dynamic> data) {
+    return Package(
+      id: data['id'] as int? ?? 0,
+      name: data['package_name'] as String? ?? 'Unnamed Package',
+      details: data['package_details'] as String? ?? 'No details available',
+      duration: data['package_duration'] as String? ?? 'Unknown duration',
+      typeId: data['type_id']?.toString(),
+      photographerId: data['photographer_id']?.toString(),
+      amount: data['package_amount'] is int
+          ? (data['package_amount'] as int).toDouble()
+          : data['package_amount'] is double
+              ? data['package_amount'] as double
+              : null,
+      imageUrl: data['image_url'] as String?,
+    );
+  }
 }
 
 // AppBarLogo Widget
@@ -241,6 +264,8 @@ class AppBarLogo extends StatelessWidget {
         Text(
           "LensHire",
           style: AppTextStyles.appBarTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -282,7 +307,8 @@ class PhotographerCard extends StatelessWidget {
             Hero(
               tag: 'photographer-${photographer.id}',
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
                 child: Container(
                   height: 100,
                   width: double.infinity,
@@ -298,7 +324,8 @@ class PhotographerCard extends StatelessWidget {
                         : null,
                   ),
                   child: photographer.imageUrl == null
-                      ? const Icon(Icons.camera_alt, size: 32, color: Colors.white)
+                      ? const Icon(Icons.camera_alt,
+                          size: 32, color: Colors.white)
                       : null,
                 ),
               ),
@@ -318,7 +345,8 @@ class PhotographerCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
@@ -328,6 +356,8 @@ class PhotographerCard extends StatelessWidget {
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.primary,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -336,15 +366,19 @@ class PhotographerCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.star_rounded, size: 16, color: Colors.amber),
+                          const Icon(Icons.star_rounded,
+                              size: 16, color: Colors.amber),
                           const SizedBox(width: 4),
                           Text(
                             photographer.rating.toString(),
                             style: AppTextStyles.bodySmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
-                      Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          size: 14, color: AppColors.primary),
                     ],
                   ),
                 ],
@@ -357,7 +391,7 @@ class PhotographerCard extends StatelessWidget {
   }
 }
 
-// Package Card
+// Redesigned Package Card
 class PackageCard extends StatelessWidget {
   final Package package;
   final VoidCallback onBookNow;
@@ -373,63 +407,40 @@ class PackageCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: AppColors.primaryLight.withOpacity(0.3), width: 1),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadow.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: AppColors.shadow.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                child: Container(
-                  height: 100,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: package.imageUrl == null
-                        ? (package.type == 'Premium'
-                            ? AppColors.accentGradient
-                            : AppColors.primaryGradient)
-                        : null,
-                    image: package.imageUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(package.imageUrl!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: package.imageUrl == null
-                      ? const Icon(Icons.photo_camera, size: 32, color: Colors.white)
-                      : null,
-                ),
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient:
+                    package.imageUrl == null ? AppColors.primaryGradient : null,
+                image: package.imageUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(package.imageUrl!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
-              Positioned(
-                top: 8,
-                left: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: package.type == 'Premium'
-                        ? AppColors.accent
-                        : (package.type == 'Standard' ? AppColors.primary : AppColors.info),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    package.type,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              child: package.imageUrl == null
+                  ? const Icon(Icons.photo_camera,
+                      size: 40, color: Colors.white)
+                  : null,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(12),
@@ -440,19 +451,31 @@ class PackageCard extends StatelessWidget {
                   package.name,
                   style: AppTextStyles.bodyMedium.copyWith(
                     fontWeight: FontWeight.w600,
+                    fontSize: 16,
                   ),
                   maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  package.details,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.access_time_rounded, size: 14, color: AppColors.textSecondary),
+                    Icon(Icons.access_time_rounded,
+                        size: 14, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         package.duration,
                         style: AppTextStyles.bodySmall,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -462,22 +485,38 @@ class PackageCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '\$${package.price.toStringAsFixed(2)}',
-                      style: AppTextStyles.price,
+                    Flexible(
+                      child: Text(
+                        package.amount != null
+                            ? '\$${package.amount!.toStringAsFixed(2)}'
+                            : 'N/A',
+                        style: AppTextStyles.price.copyWith(
+                          fontSize: 16,
+                          color: package.amount != null
+                              ? AppColors.primary
+                              : AppColors.textHint,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     ElevatedButton(
-                      onPressed: onBookNow,
+                      onPressed: package.amount != null ? onBookNow : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(20),
                         ),
+                        elevation: 0,
                       ),
                       child: Text(
-                        'Book',
+                        'Book Now',
                         style: AppTextStyles.button.copyWith(fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -511,18 +550,30 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: AppTextStyles.sectionTitle,
+          Flexible(
+            child: Text(
+              title,
+              style: AppTextStyles.sectionTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           if (actionText != null && onActionTap != null)
             TextButton(
               onPressed: onActionTap,
               child: Row(
                 children: [
-                  Text(actionText!, style: AppTextStyles.actionLink),
+                  Flexible(
+                    child: Text(
+                      actionText!,
+                      style: AppTextStyles.actionLink,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.primary),
+                  const Icon(Icons.arrow_forward_rounded,
+                      size: 16, color: AppColors.primary),
                 ],
               ),
             ),
@@ -535,11 +586,9 @@ class SectionHeader extends StatelessWidget {
 // Custom Search Delegate with Filters
 class CustomSearchDelegate extends SearchDelegate<String> {
   final List<Photographer> photographers;
-  final List<Package> packages;
-  String? statusFilter;
-  int? placeIdFilter;
+  final List<GalleryPhoto> galleryPhotos;
 
-  CustomSearchDelegate(this.photographers, this.packages);
+  CustomSearchDelegate(this.photographers, this.galleryPhotos);
 
   @override
   ThemeData appBarTheme(BuildContext context) {
@@ -588,6 +637,9 @@ class CustomSearchDelegate extends SearchDelegate<String> {
     ];
   }
 
+  String? statusFilter;
+  int? placeIdFilter;
+
   @override
   Widget buildLeading(BuildContext context) {
     return IconButton(
@@ -612,13 +664,17 @@ class CustomSearchDelegate extends SearchDelegate<String> {
     var filteredPhotographers = photographers.where((p) {
       final matchesQuery = p.name.toLowerCase().contains(query.toLowerCase()) ||
           p.specialty.toLowerCase().contains(query.toLowerCase());
-      final matchesStatus = statusFilter == null || p.status.toString() == statusFilter;
+      final matchesStatus =
+          statusFilter == null || p.status.toString() == statusFilter;
       final matchesPlace = placeIdFilter == null || p.placeId == placeIdFilter;
       return matchesQuery && matchesStatus && matchesPlace;
     }).toList();
 
-    final packageResults = packages
-        .where((p) => p.name.toLowerCase().contains(query.toLowerCase()))
+    final photoResults = galleryPhotos
+        .where((p) =>
+            (p.photographerName?.toLowerCase().contains(query.toLowerCase()) ??
+                false) ||
+            (p.caption?.toLowerCase().contains(query.toLowerCase()) ?? false))
         .toList();
 
     return SingleChildScrollView(
@@ -640,17 +696,35 @@ class CustomSearchDelegate extends SearchDelegate<String> {
                     radius: 20,
                     backgroundColor: AppColors.primaryLight,
                     child: p.imageUrl != null
-                        ? ClipOval(child: Image.network(p.imageUrl!, fit: BoxFit.cover))
+                        ? ClipOval(
+                            child:
+                                Image.network(p.imageUrl!, fit: BoxFit.cover))
                         : const Icon(Icons.person, color: Colors.white),
                   ),
-                  title: Text(p.name, style: AppTextStyles.bodyMedium),
-                  subtitle: Text(p.specialty, style: AppTextStyles.bodySmall),
-                  trailing: Text('${p.rating}', style: AppTextStyles.bodySmall),
+                  title: Text(
+                    p.name,
+                    style: AppTextStyles.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    p.specialty,
+                    style: AppTextStyles.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Text(
+                    '${p.rating}',
+                    style: AppTextStyles.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => PhotographerDetailsPage(photographer: p),
+                        builder: (context) =>
+                            PhotographerDetailsPage(photographer: p),
                       ),
                     );
                   },
@@ -659,31 +733,53 @@ class CustomSearchDelegate extends SearchDelegate<String> {
             ),
             const SizedBox(height: 16),
           ],
-          if (packageResults.isNotEmpty) ...[
-            Text('Packages', style: AppTextStyles.sectionTitle),
+          if (photoResults.isNotEmpty) ...[
+            Text('Gallery Photos', style: AppTextStyles.sectionTitle),
             const SizedBox(height: 8),
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: packageResults.length,
+              itemCount: photoResults.length,
               itemBuilder: (context, index) {
-                final p = packageResults[index];
+                final p = photoResults[index];
                 return ListTile(
-                  leading: Icon(Icons.photo_camera, color: AppColors.primary),
-                  title: Text(p.name, style: AppTextStyles.bodyMedium),
-                  subtitle: Text('${p.type} - ${p.duration}', style: AppTextStyles.bodySmall),
-                  trailing: Text('\$${p.price}', style: AppTextStyles.price),
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      p.photoUrl,
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.error, color: AppColors.error),
+                    ),
+                  ),
+                  title: Text(
+                    p.photographerName ?? 'Unknown',
+                    style: AppTextStyles.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    p.caption ?? 'No caption',
+                    style: AppTextStyles.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 );
               },
             ),
           ],
-          if (filteredPhotographers.isEmpty && packageResults.isEmpty)
+          if (filteredPhotographers.isEmpty && photoResults.isEmpty)
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Text(
                   'No results found',
-                  style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+                  style: AppTextStyles.bodyLarge
+                      .copyWith(color: AppColors.textSecondary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
@@ -708,49 +804,61 @@ class _FilterDialogState extends State<FilterDialog> {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text('Filters', style: AppTextStyles.sectionTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              labelText: 'Status',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            value: selectedStatus,
-            items: [
-              DropdownMenuItem(value: null, child: Text('All')),
-              DropdownMenuItem(value: '1', child: Text('Active')),
-              DropdownMenuItem(value: '0', child: Text('Inactive')),
-            ],
-            onChanged: (value) {
-              setState(() {
-                selectedStatus = value;
-              });
-            },
+      content: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.8,
           ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<int>(
-            decoration: InputDecoration(
-              labelText: 'Place',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            value: selectedPlaceId,
-            items: [
-              DropdownMenuItem(value: null, child: Text('All')),
-              DropdownMenuItem(value: 1, child: Text('Place 1')), // Adjust based on actual places
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  labelText: 'Status',
+                  border:
+                      OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                value: selectedStatus,
+                items: [
+                  DropdownMenuItem(value: null, child: Text('All')),
+                  DropdownMenuItem(value: '1', child: Text('Active')),
+                  DropdownMenuItem(value: '0', child: Text('Inactive')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    selectedStatus = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                decoration: InputDecoration(
+                  labelText: 'Place',
+                  border:
+                      OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                value: selectedPlaceId,
+                items: [
+                  DropdownMenuItem(value: null, child: Text('All')),
+                  DropdownMenuItem(value: 1, child: Text('Place 1')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    selectedPlaceId = value;
+                  });
+                },
+              ),
             ],
-            onChanged: (value) {
-              setState(() {
-                selectedPlaceId = value;
-              });
-            },
           ),
-        ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: AppTextStyles.actionLink),
+          child: Text('Cancel',
+              style: AppTextStyles.actionLink,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
         ),
         ElevatedButton(
           onPressed: () {
@@ -761,9 +869,13 @@ class _FilterDialogState extends State<FilterDialog> {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          child: Text('Apply', style: AppTextStyles.button),
+          child: Text('Apply',
+              style: AppTextStyles.button,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
         ),
       ],
     );
@@ -778,25 +890,23 @@ class IndexPage extends StatefulWidget {
   State<IndexPage> createState() => _IndexPageState();
 }
 
-class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMixin {
+class _IndexPageState extends State<IndexPage>
+    with SingleTickerProviderStateMixin {
   List<Photographer> _featuredPhotographers = [];
-  final List<Package> _photographyPackages = [
-    Package(id: 1, name: 'Basic Portrait', type: 'Basic', price: 99.99, duration: '1 hour'),
-    Package(id: 2, name: 'Wedding Standard', type: 'Standard', price: 299.99, duration: '4 hours'),
-    Package(id: 3, name: 'Premium Event', type: 'Premium', price: 499.99, duration: '6 hours'),
-    Package(id: 4, name: 'Family Photoshoot', type: 'Standard', price: 199.99, duration: '2 hours'),
-  ];
-
+  List<GalleryPhoto> _galleryPhotos = [];
   int _currentIndex = 0;
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   bool _isLoading = true;
+  bool _isGalleryLoading = true;
   String? _error;
+  String? _galleryError;
 
   @override
   void initState() {
     super.initState();
     _fetchPhotographers();
+    _fetchGalleryPhotos();
     _scrollController.addListener(() {
       setState(() {
         _isScrolled = _scrollController.offset > 50;
@@ -806,15 +916,60 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
 
   Future<void> _fetchPhotographers() async {
     try {
-      final response = await supabase.from('Guest_tbl_photographer').select();
+      final response = await Supabase.instance.client
+          .from('Guest_tbl_photographer')
+          .select();
       setState(() {
-        _featuredPhotographers = response.map<Photographer>((json) => Photographer.fromJson(json)).toList();
+        _featuredPhotographers = (response as List<dynamic>)
+            .map<Photographer>(
+                (data) => Photographer.fromMap(data as Map<String, dynamic>))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = 'Failed to load photographers: $e';
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchGalleryPhotos() async {
+    try {
+      final galleryResponse = await Supabase.instance.client
+          .from('Photographer_tbl_gallery')
+          .select('id, gallery_photo, gallery_caption, Photographer_id_id');
+      final photos = <GalleryPhoto>[];
+      for (var data in (galleryResponse as List<dynamic>)) {
+        final photographerId = data['Photographer_id_id']?.toString() ?? '';
+        String? photographerName = 'Unknown';
+
+        if (photographerId.isNotEmpty) {
+          final photographerResponse = await Supabase.instance.client
+              .from('Guest_tbl_photographer')
+              .select('photographer_name')
+              .eq('photo_id', photographerId)
+              .maybeSingle();
+          photographerName = photographerResponse != null
+              ? photographerResponse['photographer_name'] as String? ??
+                  'Unknown'
+              : 'Unknown';
+        }
+
+        photos.add(GalleryPhoto.fromMap(
+          data as Map<String, dynamic>,
+          photographerName: photographerName,
+        ));
+      }
+
+      setState(() {
+        _galleryPhotos = photos;
+        _isGalleryLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _galleryError = 'Failed to load gallery photos: $e';
+        _isGalleryLoading = false;
       });
     }
   }
@@ -874,11 +1029,21 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
       return Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
     if (_error != null) {
-      return Center(child: Text('Error: $_error', style: AppTextStyles.bodyMedium));
+      return Center(
+          child: Text(
+        'Error: $_error',
+        style: AppTextStyles.bodyMedium,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+      ));
     }
 
     return RefreshIndicator(
-      onRefresh: _fetchPhotographers,
+      onRefresh: () async {
+        await _fetchPhotographers();
+        await _fetchGalleryPhotos();
+      },
       color: AppColors.primary,
       child: CustomScrollView(
         controller: _scrollController,
@@ -907,12 +1072,18 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
                       children: [
                         Text(
                           'Find Your Perfect\nPhotographer',
-                          style: AppTextStyles.heading2.copyWith(color: Colors.white),
+                          style: AppTextStyles.heading2
+                              .copyWith(color: Colors.white),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Professional services for every occasion',
-                          style: AppTextStyles.bodyMedium.copyWith(color: Colors.white70),
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: Colors.white70),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -939,10 +1110,13 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
                 readOnly: true,
                 onTap: _showSearchDialog,
                 decoration: InputDecoration(
-                  hintText: 'Search photographers, packages...',
-                  hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
-                  prefixIcon: Icon(Icons.search_rounded, color: AppColors.textHint),
-                  suffixIcon: Icon(Icons.tune_rounded, color: AppColors.primary),
+                  hintText: 'Search photographers, photos...',
+                  hintStyle: AppTextStyles.bodyMedium
+                      .copyWith(color: AppColors.textHint),
+                  prefixIcon:
+                      Icon(Icons.search_rounded, color: AppColors.textHint),
+                  suffixIcon:
+                      Icon(Icons.tune_rounded, color: AppColors.primary),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -966,8 +1140,8 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
                     itemBuilder: (context, index) {
                       return PhotographerCard(
                         photographer: _featuredPhotographers[index],
-                        onTap: () =>
-                            _navigateToPhotographerDetails(_featuredPhotographers[index]),
+                        onTap: () => _navigateToPhotographerDetails(
+                            _featuredPhotographers[index]),
                       );
                     },
                   ),
@@ -980,33 +1154,131 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
             child: Column(
               children: [
                 SectionHeader(
-                  title: 'Photography Packages',
+                  title: 'Photo Gallery',
                   actionText: 'View All',
-                  onActionTap: _viewAllPackages,
+                  onActionTap: _viewAllPhotos,
                 ),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final crossAxisCount = (constraints.maxWidth / 200).floor().clamp(1, 2);
-                    return GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 0.8,
-                      ),
-                      itemCount: _photographyPackages.length,
-                      itemBuilder: (context, index) {
-                        return PackageCard(
-                          package: _photographyPackages[index],
-                          onBookNow: () => _bookPackage(_photographyPackages[index]),
-                        );
-                      },
-                    );
-                  },
-                ),
+                _isGalleryLoading
+                    ? Center(
+                        child:
+                            CircularProgressIndicator(color: AppColors.primary))
+                    : _galleryError != null
+                        ? Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                              'Error: $_galleryError',
+                              style: AppTextStyles.bodyMedium,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : _galleryPhotos.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text(
+                                  'No photos available',
+                                  style: AppTextStyles.bodyMedium,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                              )
+                            : GridView.builder(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                  childAspectRatio: 0.75,
+                                ),
+                                itemCount: _galleryPhotos.length,
+                                itemBuilder: (context, index) {
+                                  final photo = _galleryPhotos[index];
+                                  return GestureDetector(
+                                    onTap: () {
+                                      _navigateToPhotographerDetails(
+                                          _featuredPhotographers.firstWhere(
+                                              (p) =>
+                                                  p.id == photo.photographerId,
+                                              orElse: () => Photographer(
+                                                    id: photo.photographerId,
+                                                    name: photo
+                                                            .photographerName ??
+                                                        'Unknown',
+                                                    specialty: 'Photography',
+                                                    rating: 4.5,
+                                                    email: '',
+                                                    contact: '',
+                                                    address: '',
+                                                    status: 0,
+                                                    placeId: 0,
+                                                  )));
+                                    },
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.shadow
+                                                .withOpacity(0.1),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  const BorderRadius.vertical(
+                                                      top: Radius.circular(12)),
+                                              child: Image.network(
+                                                photo.photoUrl,
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                                errorBuilder: (context, error,
+                                                        stackTrace) =>
+                                                    Container(
+                                                  color: AppColors.divider,
+                                                  child: const Icon(Icons.error,
+                                                      color: AppColors.error),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.card,
+                                              borderRadius:
+                                                  const BorderRadius.vertical(
+                                                      bottom:
+                                                          Radius.circular(12)),
+                                            ),
+                                            child: Text(
+                                              photo.photographerName ??
+                                                  'Unknown',
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                 const SizedBox(height: 24),
               ],
             ),
@@ -1020,7 +1292,8 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
                   onActionTap: () {},
                 ),
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: AppColors.primaryGradient,
@@ -1032,13 +1305,17 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
                       Row(
                         children: List.generate(
                           5,
-                          (_) => const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
+                          (_) => const Icon(Icons.star_rounded,
+                              color: Colors.amber, size: 20),
                         ),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         '"The photographer was amazing! They captured every special moment of our wedding day perfectly."',
-                        style: AppTextStyles.bodyMedium.copyWith(color: Colors.white),
+                        style: AppTextStyles.bodyMedium
+                            .copyWith(color: Colors.white),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 16),
                       Row(
@@ -1046,21 +1323,30 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
                           CircleAvatar(
                             radius: 16,
                             backgroundColor: Colors.white.withOpacity(0.2),
-                            child: const Icon(Icons.person, color: Colors.white, size: 16),
+                            child: const Icon(Icons.person,
+                                color: Colors.white, size: 16),
                           ),
                           const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Jennifer & Robert',
-                                style: AppTextStyles.bodyMedium.copyWith(color: Colors.white),
-                              ),
-                              Text(
-                                'Wedding Photography',
-                                style: AppTextStyles.bodySmall.copyWith(color: Colors.white70),
-                              ),
-                            ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Jennifer & Robert',
+                                  style: AppTextStyles.bodyMedium
+                                      .copyWith(color: Colors.white),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  'Wedding Photography',
+                                  style: AppTextStyles.bodySmall
+                                      .copyWith(color: Colors.white70),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -1128,6 +1414,8 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
                 color: isSelected ? AppColors.primary : AppColors.textSecondary,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -1146,10 +1434,12 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
         _viewAllPhotographers();
         break;
       case 2:
-        Navigator.push(context, MaterialPageRoute(builder: (_) =>  MyBookingsPage()));
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => MyBookingsPage()));
         break;
       case 3:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const MyProfilePage()));
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const MyProfilePage()));
         break;
     }
   }
@@ -1158,7 +1448,8 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PhotographerDetailsPage(photographer: photographer),
+        builder: (context) =>
+            PhotographerDetailsPage(photographer: photographer),
       ),
     );
   }
@@ -1166,7 +1457,7 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
   void _showSearchDialog() {
     showSearch(
       context: context,
-      delegate: CustomSearchDelegate(_featuredPhotographers, _photographyPackages),
+      delegate: CustomSearchDelegate(_featuredPhotographers, _galleryPhotos),
     );
   }
 
@@ -1179,38 +1470,62 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
           children: [
             Icon(Icons.camera_alt, color: AppColors.primary),
             const SizedBox(width: 8),
-            Text('About LensHire', style: AppTextStyles.sectionTitle),
+            Flexible(
+              child: Text(
+                'About LensHire',
+                style: AppTextStyles.sectionTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Version 1.0', style: AppTextStyles.bodyMedium),
-            const SizedBox(height: 8),
-            Text(
-              'The premier photography booking platform.',
-              style: AppTextStyles.bodySmall,
+        content: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.8,
             ),
-            const SizedBox(height: 16),
-            Text(
-              '© 2023 LensHire Inc.',
-              style: AppTextStyles.caption,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Version 1.0',
+                  style: AppTextStyles.bodyMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'The premier photography booking platform.',
+                  style: AppTextStyles.bodySmall,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '© 2023 LensHire Inc.',
+                  style: AppTextStyles.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close', style: AppTextStyles.actionLink),
+            child: Text(
+              'Close',
+              style: AppTextStyles.actionLink,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _refreshContent() async {
-    await _fetchPhotographers();
   }
 
   void _viewAllPhotographers() {
@@ -1219,54 +1534,9 @@ class _IndexPageState extends State<IndexPage> with SingleTickerProviderStateMix
     );
   }
 
-  void _viewAllPackages() {
+  void _viewAllPhotos() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('View all packages coming soon')),
-    );
-  }
-
-  void _bookPackage(Package package) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text('Book ${package.name}', style: AppTextStyles.sectionTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Price: \$${package.price.toStringAsFixed(2)}', style: AppTextStyles.price),
-            const SizedBox(height: 8),
-            Text('Type: ${package.type}', style: AppTextStyles.bodyMedium),
-            const SizedBox(height: 8),
-            Text('Duration: ${package.duration}', style: AppTextStyles.bodySmall),
-            const SizedBox(height: 16),
-            Text('Confirm booking?', style: AppTextStyles.bodyMedium),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: AppTextStyles.actionLink),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${package.name} booked!'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: Text('Confirm', style: AppTextStyles.button),
-          ),
-        ],
-      ),
+      const SnackBar(content: Text('View all photos coming soon')),
     );
   }
 }
@@ -1278,34 +1548,67 @@ class PhotographerDetailsPage extends StatefulWidget {
   const PhotographerDetailsPage({super.key, required this.photographer});
 
   @override
-  _PhotographerDetailsPageState createState() => _PhotographerDetailsPageState();
+  _PhotographerDetailsPageState createState() =>
+      _PhotographerDetailsPageState();
 }
 
 class _PhotographerDetailsPageState extends State<PhotographerDetailsPage> {
   List<GalleryPhoto> _galleryPhotos = [];
+  List<Package> _packages = [];
   bool _isLoading = true;
+  bool _isPackagesLoading = true;
   String? _error;
+  String? _packagesError;
 
   @override
   void initState() {
     super.initState();
     _fetchGallery();
+    _fetchPackages();
   }
 
   Future<void> _fetchGallery() async {
     try {
-      final response = await supabase
+      final response = await Supabase.instance.client
           .from('Photographer_tbl_gallery')
           .select()
           .eq('Photographer_id_id', widget.photographer.id);
       setState(() {
-        _galleryPhotos = response.map<GalleryPhoto>((json) => GalleryPhoto.fromJson(json)).toList();
+        _galleryPhotos = (response as List<dynamic>)
+            .map<GalleryPhoto>((data) => GalleryPhoto.fromMap(
+                  data as Map<String, dynamic>,
+                  photographerName: widget.photographer.name,
+                ))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = 'Failed to load gallery: $e';
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchPackages() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('Photographer_tbl_package')
+          .select()
+          .eq('photographer_id_id', widget.photographer.id);
+
+      setState(() {
+        _packages = (response as List<dynamic>)
+            .map<Package>(
+                (data) => Package.fromMap(data as Map<String, dynamic>))
+            .where((package) => package.amount != null)
+            .toList();
+        _isPackagesLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _packagesError = 'Failed to load packages: $e';
+        _isPackagesLoading = false;
       });
     }
   }
@@ -1313,246 +1616,510 @@ class _PhotographerDetailsPageState extends State<PhotographerDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 250,
-            pinned: true,
-            backgroundColor: AppColors.primary,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Hero(
-                    tag: 'photographer-${widget.photographer.id}',
-                    child: Container(
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 250,
+              pinned: true,
+              backgroundColor: AppColors.primary,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Hero(
+                      tag: 'photographer-${widget.photographer.id}',
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: widget.photographer.imageUrl == null
+                              ? AppColors.primaryGradient
+                              : null,
+                          image: widget.photographer.imageUrl != null
+                              ? DecorationImage(
+                                  image: NetworkImage(
+                                      widget.photographer.imageUrl!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: widget.photographer.imageUrl == null
+                            ? const Icon(Icons.camera_alt,
+                                size: 64, color: Colors.white)
+                            : null,
+                      ),
+                    ),
+                    Container(
                       decoration: BoxDecoration(
-                        gradient: widget.photographer.imageUrl == null
-                            ? AppColors.primaryGradient
-                            : null,
-                        image: widget.photographer.imageUrl != null
-                            ? DecorationImage(
-                                image: NetworkImage(widget.photographer.imageUrl!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                      ),
-                      child: widget.photographer.imageUrl == null
-                          ? const Icon(Icons.camera_alt, size: 64, color: Colors.white)
-                          : null,
-                    ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 16,
-                    left: 16,
-                    right: 16,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.photographer.name,
-                          style: AppTextStyles.heading2.copyWith(color: Colors.white),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Chip(
-                              label: Text(
-                                widget.photographer.specialty,
-                                style: AppTextStyles.bodySmall.copyWith(color: Colors.white),
-                              ),
-                              backgroundColor: AppColors.primaryLight,
-                            ),
-                            const SizedBox(width: 8),
-                            Row(
-                              children: [
-                                const Icon(Icons.star_rounded, size: 16, color: Colors.amber),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${widget.photographer.rating}',
-                                  style: AppTextStyles.bodySmall.copyWith(color: Colors.white),
-                                ),
-                              ],
-                            ),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.6)
                           ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.favorite_border_rounded, color: Colors.white),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Added ${widget.photographer.name} to favorites')),
-                  );
-                },
-              ),
-            ],
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('About', style: AppTextStyles.sectionTitle),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.photographer.bio ??
-                        'Professional photographer specializing in ${widget.photographer.specialty.toLowerCase()}. Contact: ${widget.photographer.email}, ${widget.photographer.contact}. Address: ${widget.photographer.address}.',
-                    style: AppTextStyles.bodyMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  Text('Portfolio', style: AppTextStyles.sectionTitle),
-                  const SizedBox(height: 8),
-                  _isLoading
-                      ? Center(child: CircularProgressIndicator(color: AppColors.primary))
-                      : _error != null
-                          ? Text('Error: $_error', style: AppTextStyles.bodyMedium)
-                          : _galleryPhotos.isEmpty
-                              ? Text('No photos available', style: AppTextStyles.bodyMedium)
-                              : GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    crossAxisSpacing: 8,
-                                    mainAxisSpacing: 8,
-                                    childAspectRatio: 1,
-                                  ),
-                                  itemCount: _galleryPhotos.length,
-                                  itemBuilder: (context, index) {
-                                    final photo = _galleryPhotos[index];
-                                    return GestureDetector(
-                                      onTap: () {
-                                        // Optional: Show full-screen image
-                                      },
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(8),
-                                          image: DecorationImage(
-                                            image: NetworkImage(photo.photoUrl),
-                                            fit: BoxFit.cover,
-                                            onError: (exception, stackTrace) => const Icon(Icons.error),
-                                          ),
-                                        ),
-                                        child: photo.caption != null
-                                            ? Align(
-                                                alignment: Alignment.bottomCenter,
-                                                child: Container(
-                                                  color: Colors.black54,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  child: Text(
-                                                    photo.caption!,
-                                                    style: AppTextStyles.bodySmall.copyWith(color: Colors.white),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              )
-                                            : null,
-                                      ),
-                                    );
-                                  },
-                                ),
-                  const SizedBox(height: 24),
-                  Text('Available Packages', style: AppTextStyles.sectionTitle),
-                  const SizedBox(height: 8),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: 3,
-                    itemBuilder: (context, index) {
-                      final packageTypes = ['Basic', 'Standard', 'Premium'];
-                      final packagePrices = [99.99, 199.99, 299.99];
-                      final packageDurations = ['1 hour', '2 hours', '4 hours'];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.photo_camera,
-                            color: packageTypes[index] == 'Premium'
-                                ? AppColors.accent
-                                : AppColors.primary,
+                    Positioned(
+                      bottom: 16,
+                      left: 16,
+                      right: 16,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.photographer.name,
+                            style: AppTextStyles.heading2
+                                .copyWith(color: Colors.white),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          title: Text(
-                            '${packageTypes[index]} Package',
-                            style: AppTextStyles.bodyMedium,
-                          ),
-                          subtitle: Text(
-                            '${packageDurations[index]}',
-                            style: AppTextStyles.bodySmall,
-                          ),
-                          trailing: Column(
-                            mainAxisSize: MainAxisSize.min,
+                          const SizedBox(height: 4),
+                          Row(
                             children: [
-                              Text(
-                                '\$${packagePrices[index]}',
-                                style: AppTextStyles.price,
+                              Chip(
+                                label: Text(
+                                  widget.photographer.specialty,
+                                  style: AppTextStyles.bodySmall
+                                      .copyWith(color: Colors.white),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                backgroundColor: AppColors.primaryLight,
                               ),
-                              const SizedBox(height: 4),
-                              ElevatedButton(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('${packageTypes[index]} booked!')),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                              const SizedBox(width: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.star_rounded,
+                                      size: 16, color: Colors.amber),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${widget.photographer.rating}',
+                                    style: AppTextStyles.bodySmall
+                                        .copyWith(color: Colors.white),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                child: Text(
-                                  'Book',
-                                  style: AppTextStyles.button.copyWith(fontSize: 12),
-                                ),
+                                ],
                               ),
                             ],
                           ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.favorite_border_rounded,
+                      color: Colors.white),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Added ${widget.photographer.name} to favorites',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      );
-                    },
-                  ),
-                ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'About',
+                      style: AppTextStyles.sectionTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.photographer.bio ??
+                          'Professional photographer specializing in ${widget.photographer.specialty.toLowerCase()}. Contact: ${widget.photographer.email}, ${widget.photographer.contact}. Address: ${widget.photographer.address}.',
+                      style: AppTextStyles.bodyMedium,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Portfolio',
+                      style: AppTextStyles.sectionTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    _isLoading
+                        ? Center(
+                            child: CircularProgressIndicator(
+                                color: AppColors.primary))
+                        : _error != null
+                            ? Text(
+                                'Error: $_error',
+                                style: AppTextStyles.bodyMedium,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              )
+                            : _galleryPhotos.isEmpty
+                                ? Text(
+                                    'No photos available',
+                                    style: AppTextStyles.bodyMedium,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  )
+                                : GridView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 3,
+                                      crossAxisSpacing: 8,
+                                      mainAxisSpacing: 8,
+                                      childAspectRatio: 1,
+                                    ),
+                                    itemCount: _galleryPhotos.length,
+                                    itemBuilder: (context, index) {
+                                      final photo = _galleryPhotos[index];
+                                      return GestureDetector(
+                                        onTap: () {},
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            image: DecorationImage(
+                                              image:
+                                                  NetworkImage(photo.photoUrl),
+                                              fit: BoxFit.cover,
+                                              onError:
+                                                  (exception, stackTrace) =>
+                                                      const Icon(Icons.error),
+                                            ),
+                                          ),
+                                          child: photo.caption != null
+                                              ? Align(
+                                                  alignment:
+                                                      Alignment.bottomCenter,
+                                                  child: Container(
+                                                    width: double.infinity,
+                                                    color: Colors.black54,
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 4,
+                                                        vertical: 2),
+                                                    child: Text(
+                                                      photo.caption!,
+                                                      style: AppTextStyles
+                                                          .bodySmall
+                                                          .copyWith(
+                                                              color:
+                                                                  Colors.white),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                    ),
+                                                  ),
+                                                )
+                                              : null,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Available Packages',
+                      style: AppTextStyles.sectionTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    _isPackagesLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                                color: AppColors.primary),
+                          )
+                        : _packagesError != null
+                            ? Text(
+                                'Error: $_packagesError',
+                                style: AppTextStyles.bodyMedium,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              )
+                            : _packages.isEmpty
+                                ? Text(
+                                    'No packages available',
+                                    style: AppTextStyles.bodyMedium,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  )
+                                : GridView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 16,
+                                      mainAxisSpacing: 16,
+                                      childAspectRatio: 0.8,
+                                    ),
+                                    itemCount: _packages.length,
+                                    itemBuilder: (context, index) {
+                                      final package = _packages[index];
+                                      return GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  PackageBookingPage(
+                                                
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child: Card(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          elevation: 4,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              ClipRRect(
+                                                borderRadius:
+                                                    const BorderRadius.vertical(
+                                                  top: Radius.circular(12),
+                                                ),
+                                                child: Container(
+                                                  height: 120,
+                                                  width: double.infinity,
+                                                  decoration: BoxDecoration(
+                                                    gradient: package.imageUrl ==
+                                                            null
+                                                        ? AppColors
+                                                            .primaryGradient
+                                                        : null,
+                                                    image: package.imageUrl !=
+                                                            null
+                                                        ? DecorationImage(
+                                                            image: NetworkImage(
+                                                                package
+                                                                    .imageUrl!),
+                                                            fit: BoxFit.cover,
+                                                          )
+                                                        : null,
+                                                  ),
+                                                  child: package.imageUrl ==
+                                                          null
+                                                      ? const Icon(
+                                                          Icons.photo_camera,
+                                                          size: 40,
+                                                          color: Colors.white,
+                                                        )
+                                                      : null,
+                                                ),
+                                              ),
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.all(12),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      package.name,
+                                                      style: AppTextStyles
+                                                          .bodyMedium
+                                                          .copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 16,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow
+                                                          .ellipsis,
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Text(
+                                                      package.details,
+                                                      style: AppTextStyles
+                                                          .bodySmall
+                                                          .copyWith(
+                                                        color: AppColors
+                                                            .textSecondary,
+                                                      ),
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow
+                                                          .ellipsis,
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .access_time_rounded,
+                                                          size: 14,
+                                                          color: AppColors
+                                                              .textSecondary,
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            package.duration,
+                                                            style: AppTextStyles
+                                                                .bodySmall,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        Flexible(
+                                                          child: Text(
+                                                            package.amount !=
+                                                                    null
+                                                                ? '\$${package.amount!.toStringAsFixed(2)}'
+                                                                : 'N/A',
+                                                            style: AppTextStyles
+                                                                .price
+                                                                .copyWith(
+                                                              fontSize: 16,
+                                                              color: package
+                                                                          .amount !=
+                                                                      null
+                                                                  ? AppColors
+                                                                      .primary
+                                                                  : AppColors
+                                                                      .textHint,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                        ElevatedButton(
+                                                          onPressed: () {
+                                                            Navigator.push(
+                                                              context,
+                                                              MaterialPageRoute(
+                                                                builder:
+                                                                    (context) =>
+                                                                        PackageBookingPage(
+                                                  
+                                                                ),
+                                                              ),
+                                                            );
+                                                          },
+                                                          style: ElevatedButton
+                                                              .styleFrom(
+                                                            backgroundColor:
+                                                                AppColors
+                                                                    .primary,
+                                                            foregroundColor:
+                                                                Colors.white,
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .symmetric(
+                                                              horizontal: 16,
+                                                              vertical: 8,
+                                                            ),
+                                                            shape:
+                                                                RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          20),
+                                                            ),
+                                                            elevation: 0,
+                                                          ),
+                                                          child: Text(
+                                                            'Book Now',
+                                                            style: AppTextStyles
+                                                                .button
+                                                                .copyWith(
+                                                                    fontSize:
+                                                                        12),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar:   ElevatedButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Booking with ${widget.photographer.name} initiated')),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          child: Text('Book This Photographer', style: AppTextStyles.button),
+          ],
         ),
-      );
-    
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CustomPackageRequestPage(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(
+              'Customize Your Package',
+              style: AppTextStyles.button,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
