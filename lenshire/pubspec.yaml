@@ -12,6 +12,7 @@ dependencies:
   image_picker: ^1.0.4 # <-- Add this line (or latest version)
   animate_do: ^3.3.4
   supabase_flutter: ^2.8.4
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
